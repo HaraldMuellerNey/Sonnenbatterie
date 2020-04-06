@@ -42,10 +42,10 @@ function addValueDiv(category,value) {
 			myvalue = '<div class="value"><span>'+sunjson.Consumption_W+'</span><b>W</b></div>';
     	break;
 		case "GridFeedIn_W":
-			myimg = '<img src="/dash/assets/images/grid-99cd4a659fee22108f31366cf9641555.svg'">';
-			if (sunjson.idle < 0) {
+			myimg = '<img src="/dash/assets/images/grid-99cd4a659fee22108f31366cf9641555.svg">';
+			if (sunjson.GridFeedIn_W < 0) {
 				mytext = '<div class="text">Bezug</div>';
-				myvalue = '<div class="value"><span>'+ -sunjson.GridFeedIn_W +'</span><b>W</b></div>';
+				myvalue = '<div class="value"><span>'+ (-1*sunjson.GridFeedIn_W) +'</span><b>W</b></div>';
 			} else {
 				mytext = '<div class="text">Einspeisung</div>';
 				myvalue = '<div class="value"><span>'+ sunjson.GridFeedIn_W +'</span><b>W</b></div>';
@@ -55,11 +55,11 @@ function addValueDiv(category,value) {
 			myimg = '<img src="/dash/assets/images/sonnebatterie-f62b7be170afc2cd26cb0465ffe2c053.svg">';
 			mytext = '<div class="text">Batterie_Leistung</div>';
 			if (sunjson.Pac_total_W < 0) {
-				myvalue = '<div class="value"><span>entladen: '+ -sunjson.Pac_total_W +'</span><b>W</b><!----><br>';
+				myvalue = '<div class="value"><span>entladen: '+ (-1*sunjson.Pac_total_W) +'</span><b>W</b><!----><br>';
 			} else {
 				myvalue = '<div class="value"><span>laden: '+ sunjson.Pac_total_W +'</span><b>W</b><!----><br>';
 			}
-			myvalue += '	<span id="usoc" class="soc">SOC:'+sunjson.Usoc+'</span></div>';
+			myvalue += '	<span id="usoc" class="soc">SOC:'+sunjson.USOC+'</span></div>';
     	break;
 		default:
 	}
