@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Sonnenbatterie8
 // @namespace   sonnenbatterie8
-// @version     0.2
+// @version     0.3
 // @author      Harald Müller-Ney
 // @homepage    https://github.com/HaraldMuellerNey/Sonnenbatterie
 // @downloadurl https://github.com/HaraldMuellerNey/Sonnenbatterie/raw/master/Sonnenbatterie8.user.js
@@ -11,10 +11,9 @@
 // @run-at document-end
 // ==/UserScript==
 
-var format = function(text) {
-    var json = JSON.parse(text);
-    return JSON.stringify(json, null, 4);
-};
+var sunjson=JSON.parse(document.getElementsByTagName('pre')[0].innerHTML);
+var categories = ['Consumption_W','GridFeedIn_W','Production_W','Pac_total_W'];
+var dashhost= window.location.host.replace(":8080","");
 
 function addGlobalStyle(css) {
     var head, style;
@@ -26,32 +25,46 @@ function addGlobalStyle(css) {
     head.appendChild(style);
 }
 
-var sonnenjson=JSON.parse(document.getElementsByTagName('pre')[0].innerHTML);
+function addValueDiv(category,value) {
 
-var sonnendict = {
-    Production_W: {
-        image:'/dash/assets/images/production-b713447988aa2cfb325ffd0731890328.svg',
-        name:"Erzeugung",
-        unit:"W"
-    },
-    Consumption_W: {
-        image:'/dash/assets/images/consumption-c8e71a880e4bdeca99be515e6563ac9e.svg',
-        name:"Verbrauch",
-        unit:"W"
-    },
-    GridFeedIn_W: {
-        image:'/dash/assets/images/grid-99cd4a659fee22108f31366cf9641555.svg',
-        name:{negative:"Bezug",positive:"Einspeisung"},
-        unit:"W"
-    },
-    Pac_total_W: {
-        image:'/dash/assets/images/sonnebatterie-f62b7be170afc2cd26cb0465ffe2c053.svg',
-        name:{negative:"Entladung",positive:"Ladung"},
-        unit:"W"
-    }
+	var myimg = '';
+	var mytext = '';
+	var myvalue = '';
+	switch(category) {
+		case "Consumption_W":
+			myimg = '<img src="/dash/assets/images/consumption-c8e71a880e4bdeca99be515e6563ac9e.svg">';
+			mytext = '<div class="text">Verbrauch</div>';
+			myvalue = '<div class="value"><span>'+sunjson.Consumption_W+'</span><b>W</b></div>';
+    	break;
+		case "Production_W":
+			myimg = '<img src="/dash/assets/images/production-b713447988aa2cfb325ffd0731890328.svg">';
+			mytext = '<div class="text">Verbrauch</div>';
+			myvalue = '<div class="value"><span>'+sunjson.Consumption_W+'</span><b>W</b></div>';
+    	break;
+		case "GridFeedIn_W":
+			myimg = '<img src="/dash/assets/images/grid-99cd4a659fee22108f31366cf9641555.svg'">';
+			if (sunjson.idle < 0) {
+				mytext = '<div class="text">Bezug</div>';
+				myvalue = '<div class="value"><span>'+ -sunjson.GridFeedIn_W +'</span><b>W</b></div>';
+			} else {
+				mytext = '<div class="text">Einspeisung</div>';
+				myvalue = '<div class="value"><span>'+ sunjson.GridFeedIn_W +'</span><b>W</b></div>';
+			}
+    	break;
+		case "Pac_total_W":
+			myimg = '<img src="/dash/assets/images/sonnebatterie-f62b7be170afc2cd26cb0465ffe2c053.svg">';
+			mytext = '<div class="text">Batterie_Leistung</div>';
+			if (sunjson.Pac_total_W < 0) {
+				myvalue = '<div class="value"><span>entladen: '+ -sunjson.Pac_total_W +'</span><b>W</b><!----><br>';
+			} else {
+				myvalue = '<div class="value"><span>laden: '+ sunjson.Pac_total_W +'</span><b>W</b><!----><br>';
+			}
+			myvalue += '	<span id="usoc" class="soc">SOC:'+sunjson.Usoc+'</span></div>';
+    	break;
+		default:
+	}
+	myhtml += '<div class="consumption"><div class="content">' + myimg + mytext + myvalue + '</div></div>';
 }
-
-var imgurl= window.location.host.replace(":8080","");
 
 
 addGlobalStyle('.centered { text-align:center; }');
@@ -62,17 +75,15 @@ addGlobalStyle('div.values { border-radius: 25px; border: 2px solid silver; widt
 
 document.body.innerHTML = '';
 
-var myhtml =
-  '<h1 class="centered">Sonnenbatterie 8.0 Status &mdash; ' + sonnenjson.Timestamp + '</h1>'
-+ '<div class="data">'
-+ '    <div class="group">'
-+ '      <div class="values"><img src="http://' + imgurl + sonnendict.Production_W.image + '"><br />' + sonnendict.Production_W.name +'<br />' + sonnenjson.Production_W + sonnendict.Production_W.unit + '</div>'
-+ '      <div class="values"><img src="http://' + imgurl + sonnendict.GridFeedIn_W.image + '"><br />' + ((sonnenjson.GridFeedIn_W < 0)?sonnendict.GridFeedIn_W.name.negative:sonnendict.GridFeedIn_W.name.positive) + '<BR />' + ((sonnenjson.GridFeedIn_W < 0)?-sonnenjson.GridFeedIn_W:sonnenjson.GridFeedIn_W)+sonnendict.GridFeedIn_W.unit+' </div>'
-+ '    </div><div class="divider"></div><div class="group">'
-+ '      <div class="values"><img src="http://' + imgurl + sonnendict.Pac_total_W.image + '"><br />' + ((sonnenjson.Pac_total_W < 0)?sonnendict.Pac_total_W.name.negative:sonnendict.Pac_total_W.name.positive) + '<BR />' + ((sonnenjson.Pac_total_W < 0)?-sonnenjson.Pac_total_W:sonnenjson.Pac_total_W)+sonnendict.Pac_total_W.unit+' </div>'
-+ '      <div class="values"><img src="http://' + imgurl + sonnendict.Consumption_W.image + '"><br />' + sonnendict.Consumption_W.name +'<br />'+ sonnenjson.Consumption_W + sonnendict.Consumption_W.unit + '</div>'
-+ '    </div>'
-+ '</div>';
+var myhtml = '<div id="main">'
+myhtml += '<h1>Sonnenbatterie 8.0 Status &mdash; ' + sunjson.Timestamp + '</h1>';
+myhtml +=	'<div id="graph">';
+categories.forEach(addValueDiv);
+myhtml +=	'</div>';
+myhtml +=	'<div class="line-left-to-right "><div class="arrow"></div></div>';
+myhtml +=	'<div class="line-top-to-bottom "><div class="arrow"></div></div>';
+myhtml +=	'<div class="line-left-top-to-right-bottom d-none"><div class="arrow"></div></div>';
+myhtml +=	'</div>';
 
 document.body.innerHTML = myhtml;
 
@@ -92,3 +103,4 @@ charging:"laden"
 discharging:"entladen"
 idle:"idle"}
 */
+
