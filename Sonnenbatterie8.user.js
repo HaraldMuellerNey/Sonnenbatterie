@@ -55,10 +55,10 @@ var imgurl= window.location.host.replace(":8080","");
 
 
 addGlobalStyle('.centered { text-align:center; }');
-addGlobalStyle('div.data { border: 0px; width: 50%; margin: 0 auto;');
-addGlobalStyle('div.group { padding: 1em;  width: 95%; margin: 0 auto; border:0px; clear:all;}');
-addGlobalStyle('div.divider { padding: 1em;  width: 95%; height: margin: 0 auto; border:0px; clear:all;} ');
-addGlobalStyle('div.values { border-radius: 25px; border: 2px solid silver; width: 150px;  height: 150px; text-align:center; margin: 3em; padding:2em; float:left; }');
+addGlobalStyle('div.data { position: absolute; top: 50%; left: 50%;  transform: translate(-50%, -50%);}');
+addGlobalStyle('div.group { margin: 0 auto; clear:all;}');
+addGlobalStyle('div.divider { height: 0px; clear:all;} ');
+addGlobalStyle('div.values { border-radius: 25px; border: 2px solid silver; width: 150px;  height: 150px; text-align:center;  margin: 2em; float:left; }');
 
 document.body.innerHTML = '';
 
