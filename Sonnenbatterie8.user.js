@@ -1,80 +1,206 @@
 // ==UserScript==
 // @name        Sonnenbatterie8
 // @namespace   sonnenbatterie8
-// @version     0.2
+// @version     0.6.1
 // @author      Harald Müller-Ney
 // @homepage    https://github.com/HaraldMuellerNey/Sonnenbatterie
 // @downloadurl https://github.com/HaraldMuellerNey/Sonnenbatterie/raw/master/Sonnenbatterie8.user.js
 // @description Parse status information of Sonnenbatterie 8.0 ECO
 // @include     http://*:8080/api/v1/status
 // @grant       none
-// @run-at document-end
+// @require     http://code.jquery.com/jquery-3.3.1.js
+
 // ==/UserScript==
 
-var format = function(text) {
-    var json = JSON.parse(text);
-    return JSON.stringify(json, null, 4);
-};
+document.body.innerHTML = "";
 
-function addGlobalStyle(css) {
-    var head, style;
-    head = document.getElementsByTagName('head')[0];
-    if (!head) { return; }
-    style = document.createElement('style');
-    style.type = 'text/css';
-    style.innerHTML = css;
-    head.appendChild(style);
-}
+var newDoctype = document.implementation.createDocumentType('html', '', '');
+var html = document.getElementsByTagName('html')[0];
+var dashhost= window.location.host.replace(":8080","");
+var sunjson;
 
-var sonnenjson=JSON.parse(document.getElementsByTagName('pre')[0].innerHTML);
-
-var sonnendict = {
-    Production_W: {
-        image:'/dash/assets/images/production-b713447988aa2cfb325ffd0731890328.svg',
-        name:"Erzeugung",
-        unit:"W"
-    },
-    Consumption_W: {
-        image:'/dash/assets/images/consumption-c8e71a880e4bdeca99be515e6563ac9e.svg',
-        name:"Verbrauch",
-        unit:"W"
-    },
-    GridFeedIn_W: {
-        image:'/dash/assets/images/grid-99cd4a659fee22108f31366cf9641555.svg',
-        name:{negative:"Bezug",positive:"Einspeisung"},
-        unit:"W"
-    },
-    Pac_total_W: {
-        image:'/dash/assets/images/sonnebatterie-f62b7be170afc2cd26cb0465ffe2c053.svg',
-        name:{negative:"Entladung",positive:"Ladung"},
-        unit:"W"
+function getSunJSON () {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', 'http://'+dashhost+':8080/api/v1/status', false);
+  try {
+    xhr.send();
+    if (xhr.status != 200) {
+      alert(`Error ${xhr.status}: ${xhr.statusText}`);
+    } else {
+      return JSON.parse(xhr.response);
     }
+  } catch(err) { // instead of onerror
+    alert("Request failed:\n" +err);
+  }
 }
 
-var imgurl= window.location.host.replace(":8080","");
+sunjson = getSunJSON();
+
+function addTitle(title) {
+  var head = document.getElementsByTagName('head')[0];
+  var ele = head.appendChild(window.document.createElement( 'title' ));
+  ele.innerHTML = title;
+  return ele;
+}
+
+function addStyle(style) {
+  var head = document.getElementsByTagName('head')[0];
+  var ele = head.appendChild(window.document.createElement( 'style' ));
+  ele.innerHTML = style;
+  return ele;
+}
+
+function addValueDiv(category) {
+
+    var myclass ="";
+	var myimg = '';
+	var mytext = '';
+	var myvalue = '';
+	switch(category) {
+        case "Consumption_W":
+            myclass = 'consumption border rounded border-warning';
+			myimg = '<img src="http://'+ dashhost +'/dash/assets/images/consumption-c8e71a880e4bdeca99be515e6563ac9e.svg" alt="Verbrauch">';
+			mytext = '<div class="text">Verbrauch</div>';
+			myvalue = '<div class="value"><span>'+sunjson.Consumption_W+'</span><b> W</b></div>';
+    	break;
+		case "Production_W":
+            myclass = 'production border rounded border-info';
+			myimg = '<img src="http://'+ dashhost +'/dash/assets/images/production-b713447988aa2cfb325ffd0731890328.svg" alt="Erzeugung">';
+			mytext = '<div class="text">Erzeugung</div>';
+			myvalue = '<div class="value"><span>'+sunjson.Production_W+'</span><b> W</b></div>';
+    	break;
+		case "GridFeedIn_W":
+            myclass = 'grid border rounded border-dark';
+			myimg = '<img src="http://'+ dashhost +'/dash/assets/images/grid-99cd4a659fee22108f31366cf9641555.svg" alt="Netzbezug/-verbrauch">';
+			if (sunjson.GridFeedIn_W < 0) {
+				mytext = '<div class="text">Bezug</div>';
+				myvalue = '<div class="value"><span>'+ (-1*sunjson.GridFeedIn_W) +'</span><b> W</b></div>';
+			} else {
+				mytext = '<div class="text">Einspeisung</div>';
+				myvalue = '<div class="value"><span>'+ sunjson.GridFeedIn_W +'</span><b> W</b></div>';
+			}
+    	break;
+		case "Pac_total_W":
+            myclass = 'battery border rounded border-success';
+			myimg = '<img src="http://'+ dashhost +'/dash/assets/images/sonnebatterie-f62b7be170afc2cd26cb0465ffe2c053.svg" alt="Batterie-Leistung">';
+			mytext = '<div class="text">Batterie</div>';
+			if (sunjson.Pac_total_W <= 0) {
+                if (sunjson.BatteryCharging) {
+                    myvalue = '<div class="value"><span>Laden: '+ (-1*sunjson.Pac_total_W) +'</span><b> W</b><!----><br>';
+                } else {
+                    myvalue = '<div class="value"><span>Idle</span><!----><br>';
+                }
+			} else {
+				myvalue = '<div class="value"><span>Entladen: '+ sunjson.Pac_total_W +'</span><b> W</b><!----><br>';
+			}
+			myvalue += '	<span id="usoc" class="soc">Ladung:'+sunjson.USOC+'</span><b> %</b></div>';
+    	break;
+		default:
+	}
+	return '      <div class="' + myclass + '"><div class="content">' + myimg + mytext + myvalue + '</div></div>';
+}
 
 
-addGlobalStyle('.centered { text-align:center; }');
-addGlobalStyle('div.data { position: absolute; top: 50%; left: 50%;  transform: translate(-50%, -50%);}');
-addGlobalStyle('div.group { margin: 0 auto; clear:all;}');
-addGlobalStyle('div.divider { height: 0px; clear:all;} ');
-addGlobalStyle('div.values { border-radius: 25px; border: 2px solid silver; width: 150px;  height: 150px; text-align:center;  margin: 2em; float:left; }');
+//document.insertBefore(newDoctype,html);
 
-document.body.innerHTML = '';
+html.setAttribute('lang', 'de');
 
-var myhtml =
-  '<h1 class="centered">Sonnenbatterie 8.0 Status &mdash; ' + sonnenjson.Timestamp + '</h1>'
-+ '<div class="data">'
-+ '    <div class="group">'
-+ '      <div class="values"><img src="http://' + imgurl + sonnendict.Production_W.image + '"><br />' + sonnendict.Production_W.name +'<br />' + sonnenjson.Production_W + sonnendict.Production_W.unit + '</div>'
-+ '      <div class="values"><img src="http://' + imgurl + sonnendict.GridFeedIn_W.image + '"><br />' + ((sonnenjson.GridFeedIn_W < 0)?sonnendict.GridFeedIn_W.name.negative:sonnendict.GridFeedIn_W.name.positive) + '<BR />' + ((sonnenjson.GridFeedIn_W < 0)?-sonnenjson.GridFeedIn_W:sonnenjson.GridFeedIn_W)+sonnendict.GridFeedIn_W.unit+' </div>'
-+ '    </div><div class="divider"></div><div class="group">'
-+ '      <div class="values"><img src="http://' + imgurl + sonnendict.Pac_total_W.image + '"><br />' + ((sonnenjson.Pac_total_W < 0)?sonnendict.Pac_total_W.name.negative:sonnendict.Pac_total_W.name.positive) + '<BR />' + ((sonnenjson.Pac_total_W < 0)?-sonnenjson.Pac_total_W:sonnenjson.Pac_total_W)+sonnendict.Pac_total_W.unit+' </div>'
-+ '      <div class="values"><img src="http://' + imgurl + sonnendict.Consumption_W.image + '"><br />' + sonnendict.Consumption_W.name +'<br />'+ sonnenjson.Consumption_W + sonnendict.Consumption_W.unit + '</div>'
-+ '    </div>'
-+ '</div>';
+addTitle("Sonnenbatterie 8 - Status Dashboard");
+
+addStyle('@import "https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css";');
+
+addStyle('div.consumption, div.grid, div.production, div.battery { width:9rem; height:9rem; text-align:center; padding-top:2rem; position:absolute; }');
+addStyle('div.production { top: 0.5rem; left:0.5rem; }');
+addStyle('div.consumption { top: 0.5rem; right:0.5rem; }');
+addStyle('div.grid { bottom: 0.5rem; left:0.5rem; }');
+addStyle('div.battery { bottom: 0.5rem; right:0.5rem; padding-top:1.0rem; }');
+addStyle('select.data-list-input { width:12rem; top: 1rem; right: 0rem; }');
+addStyle('input.data-list-input { width:5rem; height: 1.25rem; top: 2.5rem; right: 7rem; font-size:80%;}');
+addStyle('span.data-list-input { width:7rem; height: 1.25rem; top: 2.5rem; right: 0rem; }');
+addStyle('div#refreshgroup { position:fixed; bottom:1.5rem; right:1.5rem; width:15rem; height:4.75rem }');
+
+
+function generate_dash () {
+  var dashhtml = '';
+  dashhtml += dashhead;
+  dashhtml += addValueDiv('Consumption_W');
+  dashhtml += addValueDiv('GridFeedIn_W');
+  dashhtml += addValueDiv('Production_W');
+  dashhtml += addValueDiv('Pac_total_W');
+  dashhtml += '  </div>';
+  $("#dash").replaceWith(dashhtml);
+  $("#suntime").replaceWith('<span id="suntime">' + sunjson.Timestamp + '</span>');
+}
+
+var myhtml = "";
+myhtml += '<div id="refreshgroup" class="border rounded-lg border-dark bg-light justify-content-center pl-3">';
+myhtml += ' <div class="label font-weight-bold">Daten-Refresh: </div>';
+myhtml += '  <div class="data-list-input"> ';
+myhtml += '    <select class="data-list-input">';
+myhtml += '      <option value="">Select or Enter</option>';
+myhtml += '      <option value="0">No refresh</option>';
+myhtml += '      <option value="5">5 seconds</option>';
+myhtml += '      <option value="10">10 seconds</option>';
+myhtml += '      <option value="15">15 seconds</option>';
+myhtml += '      <option value="30">30 seconds</option>';
+myhtml += '      <option value="60">1 minute</option>';
+myhtml += '      <option value="300">5 minute</option>';
+myhtml += '    </select>';
+myhtml += '    <input class="data-list-input text-right" type="text" name="refreshrate" required="required" value="0"><span class="data-list-input"> Sekunden</span>';
+myhtml += '  </div>';
+myhtml += '</div>';
+myhtml += '<div id="header container">';
+myhtml += '  <div class="mt-2">';
+myhtml += '    <div col-lg-9>';
+myhtml += '      <h1 class="text-center mt-3 mb-5">Sonnenbatterie 8.0 &mdash; Status<br /><span id="suntime">' + sunjson.Timestamp + '</span></h1>';
+myhtml += '    </div>';
+myhtml += '  </div>';
+myhtml += '</div>';
+myhtml += '<div id="main" class="container col-lg-9 float-none">'
+var dashhead = '  <div id="dash" class="d-flex mx-auto mt-5 justify-content-center" style=" position:relative;width:22rem; height:22rem; ">';
+myhtml += dashhead;
+myhtml += '  </div>';
+myhtml += '</div>';
 
 document.body.innerHTML = myhtml;
+generate_dash();
+
+jQuery(function() {
+  $('select.data-list-input').focus(function() {
+    $(this).siblings('input.data-list-input').focus();
+  });
+
+  $('select.data-list-input').change(function() {
+    $(this).siblings('input.data-list-input').val($(this).val());
+  });
+  $('input.data-list-input').change(function() {
+    var myselect = $(this).siblings('select.data-list-input');
+    var myval = $(this).val();
+    myselect.val('');
+    $.each($('select.data-list-input').prop('options'), function(i, opt) {
+        if( opt.value === myval  ) {
+          myselect.val(opt.value);
+        }
+    })
+    console.log('setTimeout(refresh,'+ myval + '*1000)');
+    refreshTimer = setTimeout(refresh, myval * 1000);
+
+  });
+});
+
+
+var refreshTimer = setTimeout(function refresh() {
+    if ( $('input.data-list-input').val() !== null &&
+        $('input.data-list-input').val() !== undefined &&
+        $('input.data-list-input').val() != 0) {
+        sunjson = getSunJSON();
+        generate_dash();
+        refreshTimer = setTimeout(refresh,$('input.data-list-input').val()*1000);
+    } else {
+        refreshTimer = setTimeout(refresh, 15 * 1000);
+    }
+}, 15 * 1000);
+
 
 /* Zuordnung der werde aus dem Code des Installationsdashboard 2.0
 Consumption_W:{name:"Verbrauch",unit:"W"},
@@ -92,3 +218,4 @@ charging:"laden"
 discharging:"entladen"
 idle:"idle"}
 */
+
