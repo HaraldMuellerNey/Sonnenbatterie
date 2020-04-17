@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Sonnenbatterie8
 // @namespace   sonnenbatterie8
-// @version     0.6
+// @version     0.6.1
 // @author      Harald Müller-Ney
 // @homepage    https://github.com/HaraldMuellerNey/Sonnenbatterie
 // @downloadurl https://github.com/HaraldMuellerNey/Sonnenbatterie/raw/master/Sonnenbatterie8.user.js
@@ -114,14 +114,10 @@ addStyle('div.production { top: 0.5rem; left:0.5rem; }');
 addStyle('div.consumption { top: 0.5rem; right:0.5rem; }');
 addStyle('div.grid { bottom: 0.5rem; left:0.5rem; }');
 addStyle('div.battery { bottom: 0.5rem; right:0.5rem; padding-top:1.0rem; }');
-//addStyle('div.label { position: relative top: 2rem; right: 2rem; padding: 0.1rem 0rem; text-align:left; }');
-//addStyle('div.data-list-input { position: relative; display: flex; }');
-//addStyle('select.data-list-input { position: absolute; width:12rem; top: 1rem; right: 0rem; }');
-//addStyle('input.data-list-input { position: absolute; width:5rem; height: 1.25rem; top: 2.5rem; right: 7rem; }');
-//addStyle('span.data-list-input { position: absolute; width:7rem; height: 1.25rem; top: 2.5rem; right: 0rem; }');
 addStyle('select.data-list-input { width:12rem; top: 1rem; right: 0rem; }');
-addStyle('input.data-list-input { width:5rem; height: 1.25rem; top: 2.5rem; right: 7rem; }');
+addStyle('input.data-list-input { width:5rem; height: 1.25rem; top: 2.5rem; right: 7rem; font-size:80%;}');
 addStyle('span.data-list-input { width:7rem; height: 1.25rem; top: 2.5rem; right: 0rem; }');
+addStyle('div#refreshgroup { position:fixed; bottom:1.5rem; right:1.5rem; width:15rem; height:4.75rem }');
 
 
 function generate_dash () {
@@ -132,38 +128,34 @@ function generate_dash () {
   dashhtml += addValueDiv('Production_W');
   dashhtml += addValueDiv('Pac_total_W');
   dashhtml += '  </div>';
-  //document.getElementById('dash').innerHTML = dashhtml;
   $("#dash").replaceWith(dashhtml);
   $("#suntime").replaceWith('<span id="suntime">' + sunjson.Timestamp + '</span>');
 }
 
 var myhtml = "";
-myhtml += '<div id="header">';
-myhtml += '  <div class="dash-software-info container">';
-myhtml += '    <div class="mt-2">';
-myhtml += '      <div col-lg-9>';
-myhtml += '        <h1 class="text-center mt-3 mb-5">Sonnenbatterie 8.0 &mdash; Status<br /><span id="suntime">' + sunjson.Timestamp + '</span></h1>';
-myhtml += '      </div>';
-myhtml += '      <div class="col-lg-3">';
-myhtml += '        <div class="label">Daten-Refresh: </div>';
-myhtml += '        <div class="data-list-input"> ';
-myhtml += '          <select class="data-list-input">';
-myhtml += '            <option value="">Select or Enter</option>';
-myhtml += '            <option value="0">No refresh</option>';
-myhtml += '            <option value="5">5 seconds</option>';
-myhtml += '            <option value="10">10 seconds</option>';
-myhtml += '            <option value="15">15 seconds</option>';
-myhtml += '            <option value="30">30 seconds</option>';
-myhtml += '            <option value="60">1 minute</option>';
-myhtml += '            <option value="300">5 minute</option>';
-myhtml += '          </select>';
-myhtml += '          <input class="data-list-input" type="text" name="refreshrate" required="required" value="0"><span class="data-list-input"> Sekunden</span>';
-myhtml += '        </div>';
-myhtml += '      </div>';
+myhtml += '<div id="refreshgroup" class="border rounded-lg border-dark bg-light justify-content-center pl-3">';
+myhtml += ' <div class="label font-weight-bold">Daten-Refresh: </div>';
+myhtml += '  <div class="data-list-input"> ';
+myhtml += '    <select class="data-list-input">';
+myhtml += '      <option value="">Select or Enter</option>';
+myhtml += '      <option value="0">No refresh</option>';
+myhtml += '      <option value="5">5 seconds</option>';
+myhtml += '      <option value="10">10 seconds</option>';
+myhtml += '      <option value="15">15 seconds</option>';
+myhtml += '      <option value="30">30 seconds</option>';
+myhtml += '      <option value="60">1 minute</option>';
+myhtml += '      <option value="300">5 minute</option>';
+myhtml += '    </select>';
+myhtml += '    <input class="data-list-input text-right" type="text" name="refreshrate" required="required" value="0"><span class="data-list-input"> Sekunden</span>';
+myhtml += '  </div>';
+myhtml += '</div>';
+myhtml += '<div id="header container">';
+myhtml += '  <div class="mt-2">';
+myhtml += '    <div col-lg-9>';
+myhtml += '      <h1 class="text-center mt-3 mb-5">Sonnenbatterie 8.0 &mdash; Status<br /><span id="suntime">' + sunjson.Timestamp + '</span></h1>';
 myhtml += '    </div>';
 myhtml += '  </div>';
 myhtml += '</div>';
-
 myhtml += '<div id="main" class="container col-lg-9 float-none">'
 var dashhead = '  <div id="dash" class="d-flex mx-auto mt-5 justify-content-center" style=" position:relative;width:22rem; height:22rem; ">';
 myhtml += dashhead;
@@ -226,3 +218,4 @@ charging:"laden"
 discharging:"entladen"
 idle:"idle"}
 */
+
