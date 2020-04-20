@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Sonnenbatterie8
 // @namespace   sonnenbatterie8
-// @version     0.8.1
+// @version     0.8.2-devel
 // @author      Harald Müller-Ney
 // @homepage    https://github.com/HaraldMuellerNey/Sonnenbatterie
 // @downloadurl https://github.com/HaraldMuellerNey/Sonnenbatterie/raw/master/Sonnenbatterie8.user.js
@@ -17,11 +17,24 @@ document.body.innerHTML = "";
 
 var newDoctype = document.implementation.createDocumentType('html', '', '');
 var html = document.getElementsByTagName('html')[0];
-var dashhost= window.location.host.replace(":8080","");
+var dashurl= window.location.host;
 var sunjson;
 var refreshTimer;
-var newapi=!(window.location.port === 8080);
+//var newapi = false;
+var newapi = true;
 
+var oldapivalues = new Map([
+    ["M03", "prodcution"],
+    ["M04","consumption"],
+    ["M05","USOC"],
+    ["M034","batterydischarge"],
+    ["M035","batterydischarge"]
+]);
+
+if (window.location.port === 7979) {
+  newapi = false;
+  dashurl = window.location.host;
+}
 
 function refresh() {
     if ( $('input.data-list-input').val() !== null &&
@@ -32,26 +45,72 @@ function refresh() {
     }
 };
 
+function RefreshBatteryValue(valuename,valuetype,map) {
+    console.log("xhr.open('GET', 'http://'+"+dashurl+"+'/rest/devices/battery/'"+valuetype+"', true);");
+    return;
+    var xhr= new XMLHttpRequest();
+    xhr.open('GET', 'http://'+dashurl+'/rest/devices/battery/'+valuetype, true);
+
+    xhr.onreadystatechange = function(event) {
+      if (event.target.readyState == 4) {
+        update_dashValue(valuetype, JSON.parse(xhr.response));
+      }
+    };
+
+    xhr.onerror = function (event) {
+      console.error(xhr.statusText);
+    };
+
+    xhr.send(null);
+}
 
 function RefreshBatteryData () {
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', 'http://'+dashhost+':8080/api/v1/status', true);
+  if ( newapi === true ) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://'+dashurl+'/api/v1/status', true);
 
-  xhr.onreadystatechange = function(event) {
-    if (event.target.readyState == 4) {
-      sunjson= JSON.parse(xhr.response);
-       update_dash();
-    }
-  };
+    xhr.onreadystatechange = function(event) {
+      if (event.target.readyState == 4) {
+        sunjson= JSON.parse(xhr.response);
+        update_dash();
+      }
+    };
 
-  xhr.onerror = function (event) {
-    console.error(xhr.statusText);
-  };
+    xhr.onerror = function (event) {
+      console.error(xhr.statusText);
+    };
 
-  xhr.send(null);
+    xhr.send(null);
+  } else {
+    oldapivalues.forEach(RefreshBatteryValue);
+    alert("Alte API der Sonnenbatterie 7 wird noch nicht unterstützt!");
+  }
 };
 
 RefreshBatteryData();
+
+function update_dashValue () {
+  alert("not impelemtned");
+};
+
+function update_dash () {
+
+    $("#consumption").text(sunjson.Consumption_W);
+    $("#grid_text").text( (sunjson.GridFeedIn_W < 0)?'Bezug':'Einspeisung');
+    $("#grid").text( (sunjson.GridFeedIn_W < 0)?(-1*sunjson.GridFeedIn_W):sunjson.GridFeedIn_W);
+    $("#production").text(sunjson.Production_W);
+    if (sunjson.Pac_total_W <= 0) {
+      if (sunjson.BatteryCharging) {
+        $("#battery").text( 'Laden: '+ (-1*sunjson.Pac_total_W));
+      } else {
+        $("#battery").text( 'Idle');
+      }
+    } else {
+	  $("#battery").text( 'Entladen: '+ sunjson.Pac_total_W);
+    }
+    $("#usoc").text(sunjson.USOC);
+    $("#suntime").text(sunjson.Timestamp);
+};
 
 function addTitle(title) {
   var head = document.getElementsByTagName('head')[0];
@@ -66,6 +125,7 @@ function addStyle(style) {
   ele.innerHTML = style;
   return ele;
 }
+
 
 document.insertBefore(newDoctype,html);
 
@@ -85,28 +145,6 @@ addStyle('input.data-list-input { width:5rem; height: 1.25rem; top: 2.5rem; righ
 addStyle('span.data-list-input { width:4rem; height: 1.25rem; top: 2.5rem; right: 0rem; }');
 addStyle('div#refreshgroup { position:fixed; bottom:3rem; right:3rem; width:12rem; height:4.75rem }');
 addStyle('div#progess { position:fixed; bottom:1.5rem; left:1.5rem; width:20rem; height:1rem }');
-
-function update_dash () {
-  if ( newapi === true ) {
-    $("#consumption").text(sunjson.Consumption_W);
-    $("#grid_text").text( (sunjson.GridFeedIn_W < 0)?'Bezug':'Einspeisung');
-    $("#grid").text( (sunjson.GridFeedIn_W < 0)?(-1*sunjson.GridFeedIn_W):sunjson.GridFeedIn_W);
-    $("#production").text(sunjson.Production_W);
-    if (sunjson.Pac_total_W <= 0) {
-      if (sunjson.BatteryCharging) {
-        $("#battery").text( 'Laden: '+ (-1*sunjson.Pac_total_W));
-      } else {
-        $("#battery").text( 'Idle');
-      }
-    } else {
-	  $("#battery").text( 'Entladen: '+ sunjson.Pac_total_W);
-    }
-    $("#usoc").text(sunjson.USOC);
-    $("#suntime").text(sunjson.Timestamp);
-  } else {
-    alert("Alte API der Sonnenbatterie 7 wird noch nicht unterstützt!");
-  }
-}
 
 var myhtml = "";
 myhtml += '<div class="progress"> <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;"></div> </div>';
