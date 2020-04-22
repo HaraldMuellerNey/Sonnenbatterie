@@ -1,13 +1,17 @@
 // ==UserScript==
 // @name        Sonnenbatterie8
 // @namespace   sonnenbatterie8
-// @version     0.8.5-devel
+// @version     0.8.7-devel
 // @author      Harald Müller-Ney
 // @homepage    https://github.com/HaraldMuellerNey/Sonnenbatterie
 // @downloadurl https://github.com/HaraldMuellerNey/Sonnenbatterie/raw/master/Sonnenbatterie8.user.js
 // @description Parse status information of Sonnenbatterie 8.0 ECO
-// @include     http://*:8080/api/v1/status
-// @include     http://*:7979/rest/devices/battery*
+// @include     http://192.168.*:8080/api/v1/status
+// @include     http://10.*:8080/api/v1/status
+// @include     http://172.*:8080/api/v1/status
+// @include     http://192.168.*:7979/rest/devices/battery
+// @include     http://10.*:7979/rest/devices/battery
+// @include     http://172.*:7979/rest/devices/battery
 // @grant       none
 // @require     http://code.jquery.com/jquery-3.3.1.js
 
@@ -55,7 +59,7 @@ function refresh() {
         refreshTimer = setTimeout(refresh,$('input.data-list-input').val()*1000);
     }
 };
-
+/*
 // XMLhttpRequest to fetch battery data for old API
 // Fetch individual value
 function RefreshBatteryValue(valuename,valuetype,callback) {
@@ -76,14 +80,12 @@ function RefreshBatteryValue(valuename,valuetype,callback) {
     };
 
     xhr.send(null);
-}
+} */
 
 // XMLhttpRequest to fetch battery data
-// Use one JSON request for ECO8/10
-// Itereate over values for old api and fetch those one by one
 function RefreshBatteryData () {
-  if ( newapi === true ) {
     var xhr = new XMLHttpRequest();
+    if ( newapi === true ) {
     xhr.open('GET', 'http://'+dashurl+'/api/v1/status', true);
 
     xhr.onreadystatechange = function(event) {
@@ -99,10 +101,25 @@ function RefreshBatteryData () {
 
     xhr.send(null);
   } else {
-    oldapivalues.forEach(RefreshBatteryValue);
+    xhr.open('GET', 'http://'+dashurl+'/rest/devices/battery', true);
+
+    xhr.onreadystatechange = function(event) {
+      if (event.target.readyState == 4) {
+        sunjson= JSON.parse(xhr.response);
+        update_dash_old();
+      }
+    };
+
+    xhr.onerror = function (event) {
+      console.error(xhr.statusText);
+    };
+
+    xhr.send(null);
+
   }
 };
 
+/*
 // OLD api (ECO7)  - set update functions, since we have to fetch individual updates
 const update = {
    consumption : (value) => {
@@ -136,8 +153,9 @@ const update = {
       console.log('$("usoc").text('+value+')');
   }
 }
+ */
 
-// NEW api (ECO8, ECO10)  - update the full dash from JSON
+// Old API ECO8/ECO10 - update dash from JSON
 function update_dash () {
     $("#consumption").text(sunjson.Consumption_W);
     $("#grid_text").text( (sunjson.GridFeedIn_W < 0)?'Netzbezug':'Einspeisung');
@@ -154,6 +172,29 @@ function update_dash () {
     }
     $("#usoc").text(sunjson.USOC);
     $("#suntime").text(Now());
+};
+
+
+// Old API ECO7 - update dash from JSON
+function update_dash_old () {
+    $("#consumption").text(sunjson.M04);
+    $("#production").text(sunjson.M03);
+    if (sunjson.M35 > 0) {
+        $("#battery").text( 'Laden: '+ sunjson.M35);
+    } else if (sunjson.M34 > 0) {
+      $("#battery").text( 'Entladen: '+ sunjson.M34);
+    } else {
+      $("#battery").text( 'Idle');
+    }
+    $("#usoc").text(sunjson.M05);
+    $("#suntime").text(Now());
+    // negative Einspeisung ist Bezug
+    // Einspeisung= Erzeugung+Entladung-Ladung-Verbrauch
+    // negative gridFeed is gridConsumption
+    // gridFeed=production+discharging-charging-consumption
+    var gridFeed=sunjson.M03+sunjson.M34-sunjson.M35-sunjson.M04
+    $("#grid_text").text(( gridFeed < 0)?'Netzbezug':'Einspeisung');
+    $("#grid").text( (gridFeed < 0)?(-1*gridFeed)+" / "+sunjson.M39:gridFeed+" / "+sunjson.M39);
 };
 
 // add title to the document header
@@ -289,3 +330,4 @@ jQuery(function() {
     refreshTimer = setTimeout(refresh, myval * 1000);
   });
 });
+
