@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Sonnenbatterie8
 // @namespace   sonnenbatterie8
-// @version     0.8.2-devel
+// @version     0.8.5-devel
 // @author      Harald Müller-Ney
 // @homepage    https://github.com/HaraldMuellerNey/Sonnenbatterie
 // @downloadurl https://github.com/HaraldMuellerNey/Sonnenbatterie/raw/master/Sonnenbatterie8.user.js
@@ -12,6 +12,8 @@
 // @require     http://code.jquery.com/jquery-3.3.1.js
 
 // ==/UserScript==
+// Introduce jquery functions to Tamperminkey editor to avoid warnings
+/* globals $, jQuery */
 
 document.body.innerHTML = "";
 
@@ -20,22 +22,31 @@ var html = document.getElementsByTagName('html')[0];
 var dashurl= window.location.host;
 var sunjson;
 var refreshTimer;
-//var newapi = false;
-var newapi = true;
+var newapi =true;
+//newapi = false;  // used for authors local debugging due missing ECO7
 
+// Maping the parameters of old API to their corrosponding data
 var oldapivalues = new Map([
-    ["M03", "prodcution"],
+    ["M03","production"],
     ["M04","consumption"],
     ["M05","USOC"],
     ["M034","batterydischarge"],
-    ["M035","batterydischarge"]
+    ["M035","batterycharge"]
 ]);
 
+// Check if we use old or new API
 if (window.location.port === 7979) {
   newapi = false;
-  dashurl = window.location.host;
 }
 
+// Helper for old API, current time in ISO 8601 format
+function Now(){
+    var d = new Date();
+    d = d.getFullYear() + "-" + ('0' + (d.getMonth() + 1)).slice(-2) + "-" + ('0' + d.getDate()).slice(-2) + " " + ('0' + d.getHours()).slice(-2) + ":" + ('0' + d.getMinutes()).slice(-2) + ":" + ('0' + d.getSeconds()).slice(-2);
+    return d;
+}
+
+// Refresh the data based on the refresh input feld
 function refresh() {
     if ( $('input.data-list-input').val() !== null &&
         $('input.data-list-input').val() !== undefined &&
@@ -45,15 +56,18 @@ function refresh() {
     }
 };
 
-function RefreshBatteryValue(valuename,valuetype,map) {
-    console.log("xhr.open('GET', 'http://'+"+dashurl+"+'/rest/devices/battery/'"+valuetype+"', true);");
-    return;
+// XMLhttpRequest to fetch battery data for old API
+// Fetch individual value
+function RefreshBatteryValue(valuename,valuetype,callback) {
     var xhr= new XMLHttpRequest();
+    //console.log("xhr.open('GET', 'http://"+dashurl+"/rest/devices/battery/"+valuetype+"', true);");
     xhr.open('GET', 'http://'+dashurl+'/rest/devices/battery/'+valuetype, true);
 
     xhr.onreadystatechange = function(event) {
       if (event.target.readyState == 4) {
-        update_dashValue(valuetype, JSON.parse(xhr.response));
+        console.log('State: ' + xhr.status + "  " + xhr.statusText);
+        //update[valuename](JSON.parse(xhr.response));
+        update[valuename]("4711");
       }
     };
 
@@ -64,6 +78,9 @@ function RefreshBatteryValue(valuename,valuetype,map) {
     xhr.send(null);
 }
 
+// XMLhttpRequest to fetch battery data
+// Use one JSON request for ECO8/10
+// Itereate over values for old api and fetch those one by one
 function RefreshBatteryData () {
   if ( newapi === true ) {
     var xhr = new XMLHttpRequest();
@@ -83,20 +100,47 @@ function RefreshBatteryData () {
     xhr.send(null);
   } else {
     oldapivalues.forEach(RefreshBatteryValue);
-    alert("Alte API der Sonnenbatterie 7 wird noch nicht unterstützt!");
   }
 };
 
-RefreshBatteryData();
+// OLD api (ECO7)  - set update functions, since we have to fetch individual updates
+const update = {
+   consumption : (value) => {
+    $("#consumption").text(value);
+    console.log('$("#consumption").text('+value+')');
+  },
+  production : (value) => {
+    $("#production").text(value);
+    console.log('$("production").text('+value+')');
+  },
+  batterycharge : (value) => {
+    if ( value>0 ) { $("#battery").text( 'Laden: '+ value); };
+    console.log('$("battery").text( "Laden: "'+value+')');
+  },
+  batterydischarge : (value) => {
+      if ( value>0 ) { $("#battery").text( 'Entladen: '+ value); }
+      console.log('$("battery").text( "Entladen: "'+value+')');
+  },
+  grid : () => {
+      var value="unsupported";
+  //  needs some calculations on all other values synced
+  //  thinking about using a integerbase bitfield to sync the operations
+        $("#grid_text").text('Nicht unterstützt');
+      $("#grid").text( "&mdash;");
+      console.log('$("grid").text("&mdash")');
+  },
+  USOC : (value) => {
+      $("#usoc").text(value);
+      $("#suntime").text(Now());
+      update.grid();
+      console.log('$("usoc").text('+value+')');
+  }
+}
 
-function update_dashValue () {
-  alert("not impelemtned");
-};
-
+// NEW api (ECO8, ECO10)  - update the full dash from JSON
 function update_dash () {
-
     $("#consumption").text(sunjson.Consumption_W);
-    $("#grid_text").text( (sunjson.GridFeedIn_W < 0)?'Bezug':'Einspeisung');
+    $("#grid_text").text( (sunjson.GridFeedIn_W < 0)?'Netzbezug':'Einspeisung');
     $("#grid").text( (sunjson.GridFeedIn_W < 0)?(-1*sunjson.GridFeedIn_W):sunjson.GridFeedIn_W);
     $("#production").text(sunjson.Production_W);
     if (sunjson.Pac_total_W <= 0) {
@@ -109,9 +153,11 @@ function update_dash () {
 	  $("#battery").text( 'Entladen: '+ sunjson.Pac_total_W);
     }
     $("#usoc").text(sunjson.USOC);
-    $("#suntime").text(sunjson.Timestamp);
+    $("#suntime").text(Now());
 };
 
+// add title to the document header
+// FIXME, we can improve this for existing title and replace to avoid future errors
 function addTitle(title) {
   var head = document.getElementsByTagName('head')[0];
   var ele = head.appendChild(window.document.createElement( 'title' ));
@@ -119,6 +165,8 @@ function addTitle(title) {
   return ele;
 }
 
+
+// add CSS any styles to the document
 function addStyle(style) {
   var head = document.getElementsByTagName('head')[0];
   var ele = head.appendChild(window.document.createElement( 'style' ));
@@ -126,15 +174,16 @@ function addStyle(style) {
   return ele;
 }
 
-
+// Set doctype, langauge and title for "correct" validation
+// This will as well support correct rendering in all kind of browsers
 document.insertBefore(newDoctype,html);
-
 html.setAttribute('lang', 'de');
-
 addTitle("Sonnenbatterie 8 - Status Dashboard");
 
+// Add css for bootstrap from CDN, we have not own server in general
 addStyle('@import "https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"');
 
+// CSS layout styles
 addStyle('div.consumption, div.grid, div.production, div.battery { width:9rem; height:9rem; text-align:center; padding-top:2rem; position:absolute; }');
 addStyle('div.production { top: 0.5rem; left:0.5rem; }');
 addStyle('div.consumption { top: 0.5rem; right:0.5rem; }');
@@ -144,16 +193,16 @@ addStyle('select.data-list-input { width:8rem; top: 1rem; right: 0rem; }');
 addStyle('input.data-list-input { width:5rem; height: 1.25rem; top: 2.5rem; right: 7rem; font-size:80%;}');
 addStyle('span.data-list-input { width:4rem; height: 1.25rem; top: 2.5rem; right: 0rem; }');
 addStyle('div#refreshgroup { position:fixed; bottom:3rem; right:3rem; width:12rem; height:4.75rem }');
-addStyle('div#progess { position:fixed; bottom:1.5rem; left:1.5rem; width:20rem; height:1rem }');
 
+// Base HTML which will be filled/updated by our Javascript functions
 var myhtml = "";
-myhtml += '<div class="progress"> <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;"></div> </div>';
 myhtml += '<div id="refreshgroup" class="border rounded-lg border-dark bg-light justify-content-center pl-3">';
 myhtml += ' <div class="label font-weight-bold">Daten-Refresh: </div>';
 myhtml += '  <div class="data-list-input"> ';
 myhtml += '    <select class="data-list-input">';
 myhtml += '      <option value="">Select or Enter</option>';
 myhtml += '      <option value="0">No refresh</option>';
+myhtml += '      <option value="1">1 seconds</option>';
 myhtml += '      <option value="5">5 seconds</option>';
 myhtml += '      <option value="10">10 seconds</option>';
 myhtml += '      <option value="15">15 seconds</option>';
@@ -208,8 +257,15 @@ myhtml += '  </div>';
 myhtml += '  </div>';
 myhtml += '</div>';
 
+// Apply html to the document (we replace the original content)
 document.body.innerHTML = myhtml;
 
+// Fill initial values, function is also used for udpating
+RefreshBatteryData();
+
+
+// jquery functions to sync dropdown-select and input field
+// will reset timmer on new values
 jQuery(function() {
   $('select.data-list-input').focus(function() {
     $(this).siblings('input.data-list-input').focus();
@@ -225,7 +281,7 @@ jQuery(function() {
     var myval = $(this).val();
     myselect.val('');
     $.each($('select.data-list-input').prop('options'), function(i, opt) {
-        if( opt.value === myval  ) {
+        if( opt.value === myval ) {
           myselect.val(opt.value);
         }
     })
@@ -233,22 +289,3 @@ jQuery(function() {
     refreshTimer = setTimeout(refresh, myval * 1000);
   });
 });
-
-
-
-/* Zuordnung der werde aus dem Code des Installationsdashboard 2.0
-Consumption_W:{name:"Verbrauch",unit:"W"},
-Fac:{name:"AC Frequenz",unit:"Hz"}
-GridFeedIn_W:{name:{negative:"Bezug",positive:"Einspeisung"},unit:"W"}
-IsSystemInstalled:{name:"System installiert?"}
-Pac_total_W:{name:"Batterie-Leistung",unit:"W"}
-Production_W:{name:"Erzeugung",unit:"W"}
-RSOC:{name:"rSOC"}
-Timestamp:{name:"Zeitstempel"}
-USOC:{name:{other:"uSOC",user:"SOC"}}
-Uac:{name:"AC Spannung Wechselrichter",unit:"V"}
-Ubat:{name:"DC Spannung",unit:"V"}
-charging:"laden"
-discharging:"entladen"
-idle:"idle"}
-*/
