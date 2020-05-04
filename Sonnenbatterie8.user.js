@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Sonnenbatterie8
 // @namespace   sonnenbatterie8
-// @version     0.8.7-devel
+// @version     0.8.8-devel
 // @author      Harald Müller-Ney
 // @homepage    https://github.com/HaraldMuellerNey/Sonnenbatterie
 // @downloadurl https://github.com/HaraldMuellerNey/Sonnenbatterie/raw/master/Sonnenbatterie8.user.js
@@ -9,27 +9,35 @@
 // @include     http://192.168.*:8080/api/v1/status
 // @include     http://10.*:8080/api/v1/status
 // @include     http://172.*:8080/api/v1/status
+// @include     http://sonnenbatterie.fritz.box:8080/api/v1/status
+// @include     http://192.168.*:8080/404.html
+// @include     http://10.*:8080/404.html
+// @include     http://172.*:8080/404.html
+// @include     http://sonnenbatterie.fritz.box:8080/404.html
 // @include     http://192.168.*:7979/rest/devices/battery
 // @include     http://10.*:7979/rest/devices/battery
 // @include     http://172.*:7979/rest/devices/battery
 // @grant       none
 // @require     http://code.jquery.com/jquery-3.3.1.js
+// @require     https://apis.google.com/js/api.js
 
 // ==/UserScript==
-// Introduce jquery functions to Tamperminkey editor to avoid warnings
-/* globals $, jQuery */
+// Introduce jquery functions to Tampermokey editor to avoid warnings
+/* globals $, jQuery, gapi */
 
 document.body.innerHTML = "";
 
 var newDoctype = document.implementation.createDocumentType('html', '', '');
 var html = document.getElementsByTagName('html')[0];
-var dashurl= window.location.host;
+var dashhost= window.location.hostname;
+var dashport= window.location.port;
 var sunjson;
 var refreshTimer;
+var refreshRate = ((localStorage.getItem("SonnenRefreshRate") === null) ? 0 : localStorage.getItem('SonnenRefreshRate'));
 var newapi =true;
-//newapi = false;  // used for authors local debugging due missing ECO7
+//newapi = false;  // used for developer's local debugging to test code for not availavle ECO 7 battery
 
-// Maping the parameters of old API to their corrosponding data
+// Mapping the parameters of old API to their corrosponding data
 var oldapivalues = new Map([
     ["M03","production"],
     ["M04","consumption"],
@@ -39,7 +47,7 @@ var oldapivalues = new Map([
 ]);
 
 // Check if we use old or new API
-if (window.location.port === 7979) {
+if (dashport === 7979) {
   newapi = false;
 }
 
@@ -50,43 +58,32 @@ function Now(){
     return d;
 }
 
-// Refresh the data based on the refresh input feld
+// Refresh the data based on the refresh input field
 function refresh() {
     if ( $('input.data-list-input').val() !== null &&
         $('input.data-list-input').val() !== undefined &&
         $('input.data-list-input').val() != 0) {
-        RefreshBatteryData();
-        refreshTimer = setTimeout(refresh,$('input.data-list-input').val()*1000);
+        refreshTimer = setTimeout(refresh,refreshRate*1000);
     }
+    RefreshBatteryData();
+    RefreshOnlineStatus();
 };
-/*
-// XMLhttpRequest to fetch battery data for old API
-// Fetch individual value
-function RefreshBatteryValue(valuename,valuetype,callback) {
-    var xhr= new XMLHttpRequest();
-    //console.log("xhr.open('GET', 'http://"+dashurl+"/rest/devices/battery/"+valuetype+"', true);");
-    xhr.open('GET', 'http://'+dashurl+'/rest/devices/battery/'+valuetype, true);
 
-    xhr.onreadystatechange = function(event) {
-      if (event.target.readyState == 4) {
-        console.log('State: ' + xhr.status + "  " + xhr.statusText);
-        //update[valuename](JSON.parse(xhr.response));
-        update[valuename]("4711");
-      }
-    };
+// XMLhttpRequest to fetch battery data
+function RefreshOnlineStatus () {
+  // Hackish solution, we cannot reload the iframe directly (same-origin is violated due to ports)
+  // So we just replace the src by it self which trigger loading the "new-old" URL
+  $( '#onlineframe' ).attr( 'src', function ( i, val ) { return val; });
+};
 
-    xhr.onerror = function (event) {
-      console.error(xhr.statusText);
-    };
 
-    xhr.send(null);
-} */
 
 // XMLhttpRequest to fetch battery data
 function RefreshBatteryData () {
     var xhr = new XMLHttpRequest();
     if ( newapi === true ) {
-    xhr.open('GET', 'http://'+dashurl+'/api/v1/status', true);
+    // http://192.168.178.40/api/online_status
+    xhr.open('GET', 'http://'+dashhost+':'+dashport+'/api/v1/status', true);
 
     xhr.onreadystatechange = function(event) {
       if (event.target.readyState == 4) {
@@ -101,7 +98,7 @@ function RefreshBatteryData () {
 
     xhr.send(null);
   } else {
-    xhr.open('GET', 'http://'+dashurl+'/rest/devices/battery', true);
+    xhr.open('GET', 'http://'+dashhost+':'+dashport+'/rest/devices/battery', true);
 
     xhr.onreadystatechange = function(event) {
       if (event.target.readyState == 4) {
@@ -119,44 +116,12 @@ function RefreshBatteryData () {
   }
 };
 
-/*
-// OLD api (ECO7)  - set update functions, since we have to fetch individual updates
-const update = {
-   consumption : (value) => {
-    $("#consumption").text(value);
-    console.log('$("#consumption").text('+value+')');
-  },
-  production : (value) => {
-    $("#production").text(value);
-    console.log('$("production").text('+value+')');
-  },
-  batterycharge : (value) => {
-    if ( value>0 ) { $("#battery").text( 'Laden: '+ value); };
-    console.log('$("battery").text( "Laden: "'+value+')');
-  },
-  batterydischarge : (value) => {
-      if ( value>0 ) { $("#battery").text( 'Entladen: '+ value); }
-      console.log('$("battery").text( "Entladen: "'+value+')');
-  },
-  grid : () => {
-      var value="unsupported";
-  //  needs some calculations on all other values synced
-  //  thinking about using a integerbase bitfield to sync the operations
-        $("#grid_text").text('Nicht unterstützt');
-      $("#grid").text( "&mdash;");
-      console.log('$("grid").text("&mdash")');
-  },
-  USOC : (value) => {
-      $("#usoc").text(value);
-      $("#suntime").text(Now());
-      update.grid();
-      console.log('$("usoc").text('+value+')');
-  }
-}
- */
-
-// Old API ECO8/ECO10 - update dash from JSON
+// New API ECO8/ECO10 - update dash from JSON
 function update_dash () {
+//   Push Data to Google sheet if logged
+//     if (SheetSignedIn) {
+//       addDataRow();
+//     };
     $("#consumption").text(sunjson.Consumption_W);
     $("#grid_text").text( (sunjson.GridFeedIn_W < 0)?'Netzbezug':'Einspeisung');
     $("#grid").text( (sunjson.GridFeedIn_W < 0)?(-1*sunjson.GridFeedIn_W):sunjson.GridFeedIn_W);
@@ -188,17 +153,12 @@ function update_dash_old () {
     }
     $("#usoc").text(sunjson.M05);
     $("#suntime").text(Now());
-    // negative Einspeisung ist Bezug
-    // Einspeisung= Erzeugung+Entladung-Ladung-Verbrauch
-    // negative gridFeed is gridConsumption
-    // gridFeed=production+discharging-charging-consumption
     var gridFeed=sunjson.M03+sunjson.M34-sunjson.M35-sunjson.M04
     $("#grid_text").text(( gridFeed < 0)?'Netzbezug':'Einspeisung');
     $("#grid").text( (gridFeed < 0)?(-1*gridFeed)+" / "+sunjson.M39:gridFeed+" / "+sunjson.M39);
 };
 
 // add title to the document header
-// FIXME, we can improve this for existing title and replace to avoid future errors
 function addTitle(title) {
   var head = document.getElementsByTagName('head')[0];
   var ele = head.appendChild(window.document.createElement( 'title' ));
@@ -215,9 +175,14 @@ function addStyle(style) {
   return ele;
 }
 
-// Set doctype, langauge and title for "correct" validation
+// Set/replace doctype, langauge and title for "correct" validation
 // This will as well support correct rendering in all kind of browsers
-document.insertBefore(newDoctype,html);
+if ( document.doctype === null || document.doctype === undefined || document.doctype === "" ) {
+  document.insertBefore(newDoctype,html);
+} else {
+  document.doctype.parentNode.replaceChild(newDoctype, document.doctype);
+}
+
 html.setAttribute('lang', 'de');
 addTitle("Sonnenbatterie 8 - Status Dashboard");
 
@@ -234,6 +199,7 @@ addStyle('select.data-list-input { width:8rem; top: 1rem; right: 0rem; }');
 addStyle('input.data-list-input { width:5rem; height: 1.25rem; top: 2.5rem; right: 7rem; font-size:80%;}');
 addStyle('span.data-list-input { width:4rem; height: 1.25rem; top: 2.5rem; right: 0rem; }');
 addStyle('div#refreshgroup { position:fixed; bottom:3rem; right:3rem; width:12rem; height:4.75rem }');
+addStyle('div#onlinegroup { position:fixed; top:3rem; right:3rem; width:12rem; height:3.75rem }');
 
 // Base HTML which will be filled/updated by our Javascript functions
 var myhtml = "";
@@ -251,9 +217,15 @@ myhtml += '      <option value="30">30 seconds</option>';
 myhtml += '      <option value="60">1 minute</option>';
 myhtml += '      <option value="300">5 minute</option>';
 myhtml += '    </select>';
-myhtml += '    <input class="data-list-input text-right" type="text" name="refreshrate" required="required" value="0"><span class="data-list-input"> Sekunden</span>';
+myhtml += '    <input class="data-list-input text-right" type="text" name="refreshrate" required="required" value="'+refreshRate+'"><span class="data-list-input"> Sekunden</span>';
 myhtml += '  </div>';
 myhtml += '</div>';
+// Onlinegroup div display if battery is online (seen by Sonnen)
+myhtml += '<div id="onlinegroup" class="border rounded-lg border-dark bg-light justify-content-center pl-3">';
+myhtml += ' <div class="label font-weight-bold">Online-Status: </div>';
+myhtml += ' <iframe id="onlineframe" src="http://'+dashhost+'/api/online_status" style="border:0; padding:0;"></iframe>';
+myhtml += '</div>';
+// Header div
 myhtml += '<div id="header" class="container">';
 myhtml += '  <div class="mt-2">';
 myhtml += '    <div>';
@@ -301,9 +273,9 @@ myhtml += '</div>';
 // Apply html to the document (we replace the original content)
 document.body.innerHTML = myhtml;
 
-// Fill initial values, function is also used for udpating
-RefreshBatteryData();
 
+// Fill initial values, function is also used for udpating
+refresh();
 
 // jquery functions to sync dropdown-select and input field
 // will reset timmer on new values
@@ -313,21 +285,23 @@ jQuery(function() {
   });
 
   $('select.data-list-input').change(function() {
-    $(this).siblings('input.data-list-input').val($(this).val());
+    refreshRate = $(this).val();
+    localStorage.setItem("SonnenRefreshRate", refreshRate);
+    $(this).siblings('input.data-list-input').val(refreshRate);
     clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(refresh, $(this).val() * 1000);
+    refresh();
   });
   $('input.data-list-input').change(function() {
     var myselect = $(this).siblings('select.data-list-input');
-    var myval = $(this).val();
+    refreshRate = $(this).val();
+    localStorage.setItem("SonnenRefreshRate", refreshRate);
     myselect.val('');
     $.each($('select.data-list-input').prop('options'), function(i, opt) {
-        if( opt.value === myval ) {
-          myselect.val(opt.value);
+        if( opt.value === refreshRate ) {
+          myselect.val(refreshRate);
         }
     })
     clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(refresh, myval * 1000);
+    refresh();
   });
 });
-
