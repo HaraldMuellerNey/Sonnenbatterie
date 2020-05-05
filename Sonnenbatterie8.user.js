@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Sonnenbatterie
 // @namespace   sonnenbatterie
-// @version     0.8.8-devel
+// @version     0.8.9
 // @author      Harald Müller-Ney
 // @homepage    https://github.com/HaraldMuellerNey/Sonnenbatterie
 // @downloadurl https://github.com/HaraldMuellerNey/Sonnenbatterie/raw/master/Sonnenbatterie8.user.js
