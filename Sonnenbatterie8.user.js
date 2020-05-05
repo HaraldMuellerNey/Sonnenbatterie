@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name        Sonnenbatterie8
-// @namespace   sonnenbatterie8
+// @name        Sonnenbatterie
+// @namespace   sonnenbatterie
 // @version     0.8.8-devel
 // @author      Harald Müller-Ney
 // @homepage    https://github.com/HaraldMuellerNey/Sonnenbatterie
@@ -71,7 +71,7 @@ function refresh() {
 
 // XMLhttpRequest to fetch battery data
 function RefreshOnlineStatus () {
-  // Hackish solution, we cannot reload the iframe directly (same-origin is violated due to ports)
+  // Hackish solution, we cannot reload the iframe directly (same-origin is violated due to running ono different ports)
   // So we just replace the src by it self which trigger loading the "new-old" URL
   $( '#onlineframe' ).attr( 'src', function ( i, val ) { return val; });
 };
@@ -82,7 +82,6 @@ function RefreshOnlineStatus () {
 function RefreshBatteryData () {
     var xhr = new XMLHttpRequest();
     if ( newapi === true ) {
-    // http://192.168.178.40/api/online_status
     xhr.open('GET', 'http://'+dashhost+':'+dashport+'/api/v1/status', true);
 
     xhr.onreadystatechange = function(event) {
@@ -118,10 +117,6 @@ function RefreshBatteryData () {
 
 // New API ECO8/ECO10 - update dash from JSON
 function update_dash () {
-//   Push Data to Google sheet if logged
-//     if (SheetSignedIn) {
-//       addDataRow();
-//     };
     $("#consumption").text(sunjson.Consumption_W);
     $("#grid_text").text( (sunjson.GridFeedIn_W < 0)?'Netzbezug':'Einspeisung');
     $("#grid").text( (sunjson.GridFeedIn_W < 0)?(-1*sunjson.GridFeedIn_W):sunjson.GridFeedIn_W);
@@ -203,6 +198,8 @@ addStyle('div#onlinegroup { position:fixed; top:3rem; right:3rem; width:12rem; h
 
 // Base HTML which will be filled/updated by our Javascript functions
 var myhtml = "";
+// Refreshgroup div - setup regular refresh of data, by default no refresh
+// If a refresh is setup, we store in it in the local browswer storage to re-use it when running script again
 myhtml += '<div id="refreshgroup" class="border rounded-lg border-dark bg-light justify-content-center pl-3">';
 myhtml += ' <div class="label font-weight-bold">Daten-Refresh: </div>';
 myhtml += '  <div class="data-list-input"> ';
@@ -233,6 +230,7 @@ myhtml += '      <h1 class="text-center mt-3 mb-5">Sonnenbatterie 8.0 &mdash; St
 myhtml += '    </div>';
 myhtml += '  </div>';
 myhtml += '</div>';
+// Main div including the actual dash
 myhtml += '<div id="main" class="container col-lg-9 float-none">'
 myhtml += '  <div id="dash" class="d-flex mx-auto mt-5 justify-content-center" style=" position:relative;width:22rem; height:22rem; ">';
 myhtml += '    <div class="consumption border rounded border-warning">';
