@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Sonnenbatterie
 // @namespace   sonnenbatterie
-// @version     0.8.9
+// @version     0.8.10
 // @author      Harald Müller-Ney
 // @homepage    https://github.com/HaraldMuellerNey/Sonnenbatterie
 // @downloadurl https://github.com/HaraldMuellerNey/Sonnenbatterie/raw/master/Sonnenbatterie8.user.js
@@ -20,10 +20,14 @@
 // @grant       none
 // @require     http://code.jquery.com/jquery-3.3.1.js
 // @require     https://apis.google.com/js/api.js
-
 // ==/UserScript==
 // Introduce jquery functions to Tampermokey editor to avoid warnings
 /* globals $, jQuery, gapi */
+
+// Add Bootstrap.JS via jquery to make sure it is loaded already
+$.getScript('https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js', function () {
+//  $('#config').modal('show');
+});
 
 document.body.innerHTML = "";
 
@@ -66,6 +70,7 @@ function refresh() {
         refreshTimer = setTimeout(refresh,refreshRate*1000);
     }
     RefreshBatteryData();
+    RefreshCycleData();
     RefreshOnlineStatus();
 };
 
@@ -74,6 +79,28 @@ function RefreshOnlineStatus () {
   // Hackish solution, we cannot reload the iframe directly (same-origin is violated due to running ono different ports)
   // So we just replace the src by it self which trigger loading the "new-old" URL
   $( '#onlineframe' ).attr( 'src', function ( i, val ) { return val; });
+};
+
+function RefreshCycleData () {
+    var xhr = new XMLHttpRequest();
+    if ( newapi === true ) {
+    xhr.open('GET', 'http://'+dashhost+':'+dashport+'/api/battery', true);
+
+    xhr.onreadystatechange = function(event) {
+      if (event.target.readyState == 4) {
+        var tempjson= JSON.parse(xhr.response);
+        $("#cyclecount").text(tempjson.battery_status.cyclecount);
+        $("#cyclecounttime").text(Now());
+      }
+    };
+
+    xhr.onerror = function (event) {
+      console.error(xhr.statusText);
+    };
+
+    xhr.send(null);
+  } else {
+  }
 };
 
 
@@ -193,14 +220,15 @@ addStyle('div.battery { bottom: 0.5rem; right:0.5rem; padding-top:1.0rem; }');
 addStyle('select.data-list-input { width:8rem; top: 1rem; right: 0rem; }');
 addStyle('input.data-list-input { width:5rem; height: 1.25rem; top: 2.5rem; right: 7rem; font-size:80%;}');
 addStyle('span.data-list-input { width:4rem; height: 1.25rem; top: 2.5rem; right: 0rem; }');
-addStyle('div#refreshgroup { position:fixed; bottom:3rem; right:3rem; width:12rem; height:4.75rem }');
-addStyle('div#onlinegroup { position:fixed; top:3rem; right:3rem; width:12rem; height:3.75rem }');
+addStyle('div#refreshgroup { bottom:3rem; right:3rem; width:12rem; height:4.75rem }');
+addStyle('div#onlinegroup { top:3rem; right:3rem; width:12rem; height:3.75rem }');
+addStyle('div#cyclegroup { top:7.75rem; right:3rem; width:12rem; height:3.75rem }');
 
 // Base HTML which will be filled/updated by our Javascript functions
 var myhtml = "";
 // Refreshgroup div - setup regular refresh of data, by default no refresh
 // If a refresh is setup, we store in it in the local browswer storage to re-use it when running script again
-myhtml += '<div id="refreshgroup" class="border rounded-lg border-dark bg-light justify-content-center pl-3">';
+myhtml += '<div id="refreshgroup" class="position-fixed border rounded-lg border-dark bg-light justify-content-center pl-3">';
 myhtml += ' <div class="label font-weight-bold">Daten-Refresh: </div>';
 myhtml += '  <div class="data-list-input"> ';
 myhtml += '    <select class="data-list-input">';
@@ -218,10 +246,16 @@ myhtml += '    <input class="data-list-input text-right" type="text" name="refre
 myhtml += '  </div>';
 myhtml += '</div>';
 // Onlinegroup div display if battery is online (seen by Sonnen)
-myhtml += '<div id="onlinegroup" class="border rounded-lg border-dark bg-light justify-content-center pl-3">';
+myhtml += '<div id="onlinegroup" class="position-fixed border rounded-lg border-dark bg-light justify-content-center pl-3">';
 myhtml += ' <div class="label font-weight-bold">Online-Status: </div>';
 myhtml += ' <iframe id="onlineframe" src="http://'+dashhost+'/api/online_status" style="border:0; padding:0;"></iframe>';
 myhtml += '</div>';
+// Cyclegroup div display loading cycles
+myhtml += '<div id="cyclegroup" class="position-fixed border rounded-lg border-dark bg-light justify-content-center pl-3">';
+myhtml += ' <div class="label font-weight-bold">Ladezyklen: </div>';
+myhtml += '<span id="cyclecount">Loading</span>';
+myhtml += '</div>';
+
 // Header div
 myhtml += '<div id="header" class="container">';
 myhtml += '  <div class="mt-2">';
@@ -267,13 +301,33 @@ myhtml += '    </div>';
 myhtml += '  </div>';
 myhtml += '  </div>';
 myhtml += '</div>';
+myhtml += '<div id="config" class="modal" tabindex="-1" role="dialog">';
+myhtml += '  <div class="modal-dialog" role="document">';
+myhtml += '    <div class="modal-content">';
+myhtml += '      <div class="modal-header">';
+myhtml += '        <h5 class="modal-title">Konfiguration</h5>';
+myhtml += '        <button type="button" class="close" data-dismiss="modal" aria-label="Close">';
+myhtml += '          <span aria-hidden="true">&times;</span>';
+myhtml += '        </button>';
+myhtml += '      </div>';
+myhtml += '      <div class="modal-body">';
+myhtml += '        <p>Modal body text goes here.</p>';
+myhtml += '      </div>';
+myhtml += '      <div class="modal-footer">';
+myhtml += '        <button type="button" class="btn btn-primary">Save changes</button>';
+myhtml += '        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>';
+myhtml += '      </div>';
+myhtml += '    </div>';
+myhtml += '  </div>';
+myhtml += '</div>';
 
 // Apply html to the document (we replace the original content)
 document.body.innerHTML = myhtml;
 
-
 // Fill initial values, function is also used for udpating
 refresh();
+
+
 
 // jquery functions to sync dropdown-select and input field
 // will reset timmer on new values
@@ -303,3 +357,4 @@ jQuery(function() {
     refresh();
   });
 });
+
